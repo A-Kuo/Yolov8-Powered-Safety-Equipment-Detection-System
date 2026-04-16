@@ -1,0 +1,75 @@
+# Dataset Configuration
+# Defines class taxonomy, data splits, and training parameters
+
+# Class definitions
+classes:
+  # Primary detection: worker presence
+  worker: 0
+
+  # Drone detection
+  drone: 1
+
+  # PPE detection classes
+  safety_glasses: 2
+  safety_goggles: 3
+  hard_hat: 4
+  regular_hat: 5
+  hi_vis_vest: 6
+  regular_clothing: 7
+  work_boots: 8
+  regular_shoes: 9
+
+# Data split configuration
+splits:
+  train: 0.7
+  val: 0.15
+  test: 0.15
+
+# Augmentation settings
+augmentation:
+  enabled: true
+  hsv_h: 0.015  # HSV-Hue augmentation (fraction of 180)
+  hsv_s: 0.7    # HSV-Saturation augmentation (fraction of 255)
+  hsv_v: 0.4    # HSV-Value augmentation (fraction of 255)
+  degrees: 10   # Rotation degrees
+  translate: 0.1  # Translate fraction
+  scale: 0.5    # Scale fraction
+  flipud: 0.5   # Flip upside-down probability
+  fliplr: 0.5   # Flip left-right probability
+  mosaic: 1.0   # Mosaic augmentation probability
+  mixup: 0.0    # Mixup augmentation probability
+
+# Training parameters
+training:
+  epochs: 100
+  patience: 20  # Early stopping patience
+  batch_size: 16
+  image_size: 640
+  optimizer: "SGD"
+  lr0: 0.01
+  lrf: 0.01
+  momentum: 0.937
+  weight_decay: 0.0005
+  warmup_epochs: 3
+  warmup_momentum: 0.8
+  warmup_bias_lr: 0.1
+
+# Data paths
+paths:
+  raw_data: "data/raw"
+  processed_data: "data/processed"
+  annotations: "data/annotations"
+  splits_file: "data/processed/splits.txt"
+
+# Class weights (optional: for imbalanced datasets)
+class_weights:
+  worker: 1.0
+  drone: 1.5  # Higher weight if underrepresented
+  safety_glasses: 1.0
+  safety_goggles: 1.0
+  hard_hat: 1.2
+  regular_hat: 1.0
+  hi_vis_vest: 1.2
+  regular_clothing: 1.0
+  work_boots: 1.0
+  regular_shoes: 1.0

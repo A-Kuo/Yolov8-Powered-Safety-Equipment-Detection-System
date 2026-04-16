@@ -1,0 +1,16 @@
+# YOLO Format Class Definitions
+# Used by YOLOv8 training and inference
+
+nc: 10  # Number of classes
+
+names:
+  0: worker
+  1: drone
+  2: safety_glasses
+  3: safety_goggles
+  4: hard_hat
+  5: regular_hat
+  6: hi_vis_vest
+  7: regular_clothing
+  8: work_boots
+  9: regular_shoes

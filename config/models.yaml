@@ -1,0 +1,56 @@
+# Model Configuration
+# Defines model architectures, checkpoint paths, and inference parameters
+
+models:
+  worker_detector:
+    type: "yolov8n"  # YOLOv8 Nano for edge efficiency
+    checkpoint: "models/yolo/worker_detector.pt"
+    onnx_checkpoint: "models/onnx/worker_detector.onnx"
+    dlc_checkpoint: "models/qnn/worker_detector.dlc"
+    input_size: 640
+    classes: ["worker"]
+    confidence_threshold: 0.5
+    iou_threshold: 0.45
+    max_detections: 100
+
+  drone_classifier:
+    type: "yolov8n-cls"  # Classification model for drone vs worker
+    checkpoint: "models/yolo/drone_classifier.pt"
+    onnx_checkpoint: "models/onnx/drone_classifier.onnx"
+    dlc_checkpoint: "models/qnn/drone_classifier.dlc"
+    input_size: 224
+    classes: ["person", "drone"]
+    confidence_threshold: 0.6
+
+  ppe_detector:
+    type: "yolov8m"  # YOLOv8 Medium for detailed PPE detection
+    checkpoint: "models/yolo/ppe_detector.pt"
+    onnx_checkpoint: "models/onnx/ppe_detector.onnx"
+    dlc_checkpoint: "models/qnn/ppe_detector.dlc"
+    input_size: 640
+    classes:
+      - "safety_glasses"
+      - "safety_goggles"
+      - "hard_hat"
+      - "regular_hat"
+      - "hi_vis_vest"
+      - "regular_clothing"
+      - "work_boots"
+      - "regular_shoes"
+    confidence_threshold: 0.5
+    iou_threshold: 0.45
+    max_detections: 100
+
+# Inference settings
+inference:
+  device: "cuda"  # Options: cuda, cpu, mps (Apple Silicon)
+  backend: "pytorch"  # Options: pytorch, onnx, qnn
+  batch_size: 1
+  half_precision: true  # FP16 for faster inference
+  workers: 4
+
+# Performance targets
+performance:
+  fps_target: 30
+  max_latency_ms: 33  # 1000/30 = 33ms for 30 FPS
+  memory_limit_mb: 2048  # Edge device constraint

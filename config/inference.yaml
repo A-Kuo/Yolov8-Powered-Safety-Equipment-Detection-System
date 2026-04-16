@@ -1,0 +1,49 @@
+# Inference Configuration
+# Runtime parameters for edge deployment and testing
+
+# Runtime settings
+runtime:
+  device: "cuda"  # Options: cuda, cpu, mps
+  backend: "onnx"  # Options: pytorch, onnx, qnn
+  precision: "fp16"  # fp32, fp16, int8
+  thread_count: 4
+  stream_urls: []  # List of RTSP/HTTP streams for live detection
+
+# Inference parameters
+inference:
+  batch_size: 1
+  num_workers: 0  # DataLoader workers
+  pin_memory: true
+  timeout: 30  # seconds for inference
+
+# Detection post-processing
+postprocess:
+  confidence_threshold: 0.5
+  iou_threshold: 0.45
+  max_detections: 100
+  class_agnostic_nms: false
+
+# Tracking (optional: for video sequences)
+tracking:
+  enabled: false
+  method: "byte_track"  # Options: byte_track, botsort
+  track_activation_threshold: 0.25
+  new_track_thresh: 0.7
+  track_buffer: 30
+  match_thresh: 0.8
+  frame_rate: 30
+
+# Output configuration
+output:
+  draw_boxes: true
+  draw_labels: true
+  draw_confidence: true
+  export_json: true
+  export_csv: false
+
+# Telemetry
+telemetry:
+  log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  log_file: "logs/inference.log"
+  fps_update_interval: 10  # Update FPS every N frames
+  report_interval: 60  # Seconds between telemetry reports
