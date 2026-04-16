@@ -15,6 +15,11 @@ pyyaml==6.0
 pillow==10.0.0
 albumentations==1.3.1
 
+# Dataset Acquisition
+roboflow>=1.1.0           # Roboflow Universe datasets
+kaggle>=1.6.0             # Kaggle datasets (SH17)
+huggingface-hub>=0.20.0   # Pretrained models (keremberke PPE)
+
 # Testing
 pytest==7.4.3
 pytest-cov==4.1.0

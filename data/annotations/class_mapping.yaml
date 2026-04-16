@@ -1,0 +1,112 @@
+# Class Mapping: Source Datasets → Project Target Classes
+#
+# Maps class labels from each source dataset to our 10 target classes.
+# Used by data/preprocessing/merge_datasets.py
+
+target_classes:
+  0: worker
+  1: drone
+  2: safety_glasses
+  3: safety_goggles
+  4: hard_hat
+  5: regular_hat
+  6: hi_vis_vest
+  7: regular_clothing
+  8: work_boots
+  9: regular_shoes
+
+# --- Mapping rules ---
+# Each source dataset defines how its class labels map to target class IDs.
+# Use null to DISCARD a source class (not annotated in our schema).
+
+datasets:
+
+  ultralytics_construction_ppe:
+    source: "construction-ppe.yaml (built-in)"
+    notes: "Best coverage for boots, goggles, no-PPE classes"
+    class_map:
+      helmet:     4  # → hard_hat
+      gloves:     null  # discard (not in our primary schema)
+      vest:       6  # → hi_vis_vest
+      boots:      8  # → work_boots
+      goggles:    3  # → safety_goggles
+      none:       null  # discard (ambiguous)
+      Person:     0  # → worker
+      no_helmet:  5  # → regular_hat (head without hat)
+      no_goggle:  2  # → safety_glasses (bare eyes, maps to negative eye protection)
+      no_gloves:  null  # discard
+      no_boots:   9  # → regular_shoes
+
+  roboflow_construction_site_safety:
+    source: "roboflow-universe-projects/construction-site-safety v27"
+    notes: "Best for hi-vis vest + hard hat compliance detection"
+    class_map:
+      Hardhat:       4  # → hard_hat
+      Mask:          null  # discard (not in schema)
+      NO-Hardhat:    5  # → regular_hat (non-compliant head)
+      NO-Mask:       null  # discard
+      NO-Safety Vest: 7  # → regular_clothing (non-compliant torso)
+      Person:        0  # → worker
+      Safety Cone:   null  # discard
+      Safety Vest:   6  # → hi_vis_vest
+      machinery:     null  # discard
+      vehicle:       null  # discard
+
+  hard_hat_universe:
+    source: "universe-datasets/hard-hat-universe-0dy7t"
+    notes: "7K+ images, helmet volume booster. Only helmet/head/person."
+    class_map:
+      helmet:   4  # → hard_hat
+      head:     5  # → regular_hat (head without helmet)
+      person:   0  # → worker
+
+  sh17_dataset:
+    source: "kaggle: mugheesahmad/sh17-dataset-for-ppe-detection"
+    notes: "Best coverage for gloves, shoes, safety vest diversity. CC BY-NC-SA."
+    class_map:
+      Person:               0  # → worker
+      Head:                 5  # → regular_hat (bare head)
+      Face:                 null  # discard
+      Glasses:              2  # → safety_glasses
+      Face-mask-medical:    null  # discard
+      Face-guard:           3  # → safety_goggles (face shield maps closest to goggles)
+      Ear:                  null  # discard
+      Earmuffs:             null  # discard
+      Hands:                null  # discard (bare hands, not gloves)
+      Gloves:               null  # discard (not in target schema currently)
+      Foot:                 null  # discard
+      Shoes:                8  # → work_boots (industrial shoes in SH17 are typically work boots)
+      Safety-vest:          6  # → hi_vis_vest
+      Tools:                null  # discard
+      Helmet:               4  # → hard_hat
+      Medical-suit:         null  # discard
+      Safety-suit:          6  # → hi_vis_vest (full-body safety suits map to vest)
+
+  keremberke_ppe:
+    source: "huggingface: keremberke/protective-equipment-detection"
+    notes: "Pretrained model reference — use for transfer learning, not data merge"
+    class_map:
+      glove:       null  # discard
+      goggles:     3  # → safety_goggles
+      helmet:      4  # → hard_hat
+      mask:        null  # discard
+      no_glove:    null  # discard
+      no_goggles:  2  # → safety_glasses (bare eyes = negative goggles)
+      no_helmet:   5  # → regular_hat
+      no_mask:     null  # discard
+      no_shoes:    9  # → regular_shoes
+      shoes:       8  # → work_boots
+
+# Class weight hints for training (adjust for imbalanced datasets)
+# Higher = model penalized more for missing this class
+training_class_weights:
+  worker:           1.0
+  drone:            2.0   # Very underrepresented
+  safety_glasses:   1.5   # Small object, harder to detect
+  safety_goggles:   1.2
+  hard_hat:         1.0   # Well-represented across all datasets
+  regular_hat:      1.0
+  hi_vis_vest:      1.0   # Well-represented
+  regular_clothing: 1.2
+  work_boots:       1.5   # Small, bottom of frame
+  regular_shoes:    1.3

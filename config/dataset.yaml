@@ -1,75 +1,129 @@
 # Dataset Configuration
 # Defines class taxonomy, data splits, and training parameters
 
-# Class definitions
+# Class definitions (10 classes across worker, drone, and PPE categories)
 classes:
-  # Primary detection: worker presence
+  # Stage 1: Worker presence detection
   worker: 0
 
-  # Drone detection
+  # Stage 2: Drone vs worker classification (reduce false positives)
   drone: 1
 
-  # PPE detection classes
-  safety_glasses: 2
-  safety_goggles: 3
-  hard_hat: 4
-  regular_hat: 5
-  hi_vis_vest: 6
-  regular_clothing: 7
-  work_boots: 8
-  regular_shoes: 9
+  # Stage 3: PPE compliance detection (prioritized by detectability)
+  # HIGH PRIORITY — large area, high contrast, easiest to detect
+  safety_glasses: 2     # Spectacles with side shields
+  safety_goggles: 3     # Sealed eye protection / face shields
+  hard_hat: 4           # Construction/industrial helmet
+  regular_hat:  5       # Bare head or non-safety hat (negative class)
+  hi_vis_vest: 6        # High-visibility vest (yellow/orange/green)
+  regular_clothing: 7   # Clothing without hi-vis (negative class)
+  # LOWER PRIORITY — small area, harder to detect at distance
+  work_boots: 8         # Safety/steel-toe boots
+  regular_shoes: 9      # Non-safety footwear (negative class)
+
+# Source datasets for training (see docs/DATA_SOURCES.md for details)
+source_datasets:
+  - name: ultralytics_construction_ppe
+    path: "data/raw/ultralytics_construction_ppe"
+    images: 1416
+    priority: 1  # Zero setup, built-in to Ultralytics
+    classes_of_interest: [hard_hat, hi_vis_vest, work_boots, safety_goggles]
+
+  - name: roboflow_construction_safety
+    path: "data/raw/roboflow_construction_safety"
+    images: 2801
+    priority: 1  # Best vest + helmet compliance data
+    classes_of_interest: [hard_hat, hi_vis_vest, regular_clothing]
+
+  - name: hard_hat_universe
+    path: "data/raw/hard_hat_universe"
+    images: 7036
+    priority: 2  # Helmet volume booster
+    classes_of_interest: [hard_hat, regular_hat]
+
+  - name: sh17
+    path: "data/raw/sh17"
+    images: 8099
+    priority: 2  # Diversity, gloves, shoes coverage
+    classes_of_interest: [hi_vis_vest, hard_hat, safety_glasses, work_boots]
+
+# Target training data volume per class (for compliance assessment)
+target_class_volumes:
+  worker:           5000
+  drone:            500   # Synthesize if needed
+  safety_glasses:   1000
+  safety_goggles:   1500
+  hard_hat:         3000
+  regular_hat:      2000
+  hi_vis_vest:      2000
+  regular_clothing: 2000
+  work_boots:       1500
+  regular_shoes:    1000
 
 # Data split configuration
 splits:
-  train: 0.7
+  train: 0.70
   val: 0.15
   test: 0.15
 
-# Augmentation settings
+# Augmentation settings (tuned for PPE detection)
+# See data/preprocessing/augmentation.py for full pipeline
 augmentation:
   enabled: true
-  hsv_h: 0.015  # HSV-Hue augmentation (fraction of 180)
-  hsv_s: 0.7    # HSV-Saturation augmentation (fraction of 255)
-  hsv_v: 0.4    # HSV-Value augmentation (fraction of 255)
-  degrees: 10   # Rotation degrees
-  translate: 0.1  # Translate fraction
-  scale: 0.5    # Scale fraction
-  flipud: 0.5   # Flip upside-down probability
-  fliplr: 0.5   # Flip left-right probability
-  mosaic: 1.0   # Mosaic augmentation probability
-  mixup: 0.0    # Mixup augmentation probability
+  factor: 3           # Augment dataset 3x
+  # YOLOv8 built-in augmentations
+  hsv_h: 0.010        # Mild hue shift — preserve hi-vis yellow/orange
+  hsv_s: 0.50         # Saturation variance
+  hsv_v: 0.40         # Value/brightness variance (shadows)
+  degrees: 15         # Rotation for various camera angles
+  translate: 0.1      # Translate fraction
+  scale: 0.50         # Scale range (workers at different distances)
+  flipud: 0.0         # Never flip upside-down
+  fliplr: 0.50        # Horizontal flip
+  mosaic: 1.0         # Mosaic (combine 4 images)
+  mixup: 0.1          # Mixup for harder examples
+  copy_paste: 0.1     # Copy-paste for small objects (goggles, boots)
+  # Albumentations additional transforms (applied before YOLO augmentation)
+  random_shadow: 0.30      # Shadow simulation (warehouse lighting)
+  brightness_contrast: 0.70  # Critical for vest in different lighting
+  perspective: 0.30         # Camera angle variation
 
 # Training parameters
 training:
+  pretrained_model: "models/yolo/keremberke_ppe_m.pt"  # Start from PPE pretrained
+  fallback_model: "yolov8m.pt"    # Fallback to COCO pretrained
   epochs: 100
-  patience: 20  # Early stopping patience
-  batch_size: 16
+  patience: 20          # Early stopping patience
+  batch_size: 16        # Reduce to 8 if OOM on edge device
   image_size: 640
   optimizer: "SGD"
-  lr0: 0.01
+  lr0: 0.005            # Lower LR for fine-tuning (was 0.01)
   lrf: 0.01
   momentum: 0.937
   weight_decay: 0.0005
   warmup_epochs: 3
   warmup_momentum: 0.8
   warmup_bias_lr: 0.1
+  amp: true             # Automatic mixed precision (FP16 training)
+  freeze: 10            # Freeze first 10 backbone layers (fine-tuning)
 
 # Data paths
 paths:
   raw_data: "data/raw"
   processed_data: "data/processed"
+  merged_data: "data/processed/merged"
   annotations: "data/annotations"
-  splits_file: "data/processed/splits.txt"
+  class_mapping: "data/annotations/class_mapping.yaml"
 
-# Class weights (optional: for imbalanced datasets)
+# Class weights (adjusted based on expected data imbalance)
 class_weights:
-  worker: 1.0
-  drone: 1.5  # Higher weight if underrepresented
-  safety_glasses: 1.0
-  safety_goggles: 1.0
-  hard_hat: 1.2
-  regular_hat: 1.0
-  hi_vis_vest: 1.2
-  regular_clothing: 1.0
-  work_boots: 1.0
-  regular_shoes: 1.0
+  worker:           1.0
+  drone:            2.0   # Very underrepresented — synthesize data
+  safety_glasses:   1.5   # Small objects, harder to detect
+  safety_goggles:   1.2
+  hard_hat:         1.0   # Well-represented (7K+ helmet images)
+  regular_hat:      1.0
+  hi_vis_vest:      1.0   # Well-represented
+  regular_clothing: 1.2
+  work_boots:       1.5   # Small, bottom of frame
+  regular_shoes:    1.3
