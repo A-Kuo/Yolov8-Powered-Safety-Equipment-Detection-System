@@ -19,8 +19,10 @@ models:
     onnx_checkpoint: "models/onnx/drone_classifier.onnx"
     dlc_checkpoint: "models/qnn/drone_classifier.dlc"
     input_size: 224
+    task: "classify"  # Classification task (not detection)
     classes: ["person", "drone"]
     confidence_threshold: 0.6
+    # Note: iou_threshold not applicable for classification models
 
   ppe_detector:
     type: "yolov8m"  # YOLOv8 Medium for detailed PPE detection
