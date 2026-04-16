@@ -7,6 +7,7 @@ __pycache__/
 env/
 venv/
 ENV/
+edge-env/
 build/
 develop-eggs/
 dist/
@@ -41,6 +42,9 @@ htmlcov/
 *.pth
 *.onnx
 *.dlc
+*.torchscript
+*.pb
+*.tflite
 models/yolo/
 models/onnx/
 models/qnn/
