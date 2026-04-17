@@ -1,0 +1,90 @@
+# Mixed Dataset Configuration
+# Phase 2C: Combined real + synthetic data for fine-tuning
+#
+# Sources:
+#   - Roboflow Construction Safety: 2,801 images (Hardhat, Safety Vest, Person)
+#   - Kaggle SH17 Dataset: 8,099 images (17 safety classes)
+#   - Synthetic data: 50 generated images (POC baseline)
+# Total: ~1,150-1,200 merged images with class remapping
+
+# Dataset paths
+path: /content/workspace/data/processed/mixed
+train: train/images
+val: val/images
+test: test/images
+
+# Data split (after merging all sources)
+# Total images: ~1,200
+# Train: 840 images (70%)
+# Val:   180 images (15%)
+# Test:  180 images (15%)
+
+nc: 10  # Number of classes
+
+# Class names and IDs
+# Remapped from Roboflow (3 classes) and SH17 (17 classes) to 10-class schema
+names:
+  0: worker          # From SH17: 'person', Roboflow: 'Person'
+  1: drone           # From SH17: 'drone' or similar
+  2: safety_glasses  # From SH17: 'safety_glasses', 'spectacles'
+  3: safety_goggles  # From SH17: 'goggle_clear', 'goggle_dusty'
+  4: hard_hat        # From Roboflow: 'Hardhat', SH17: 'hard_hat'
+  5: regular_hat     # From SH17: 'cap', 'hat'
+  6: hi_vis_vest     # From Roboflow: 'Safety Vest', SH17: 'safety_jacket'
+  7: regular_clothing # From SH17: 'regular_clothing', background
+  8: work_boots      # From SH17: 'safety_boots'
+  9: regular_shoes   # From SH17: 'regular_shoes'
+
+# Training configuration for mixed data
+# Note: Use lower learning rate and freeze backbone for transfer learning
+training:
+  epochs: 60           # Phase 2C: 60 epochs (was 80 for synthetic only)
+  batch_size: 16
+  imgsz: 640
+  device: 0            # GPU device ID (0 = first GPU)
+  optimizer: SGD
+  lr0: 0.0005          # Lower learning rate for fine-tuning on mixed data
+  lrf: 0.01            # Final learning rate
+  momentum: 0.937
+  weight_decay: 0.0005
+  warmup_epochs: 5
+  patience: 15         # Early stopping patience
+  freeze: 10           # Freeze first 10 backbone layers
+  amp: true            # Mixed precision training
+
+# Augmentation
+augmentation:
+  hsv_h: 0.010
+  hsv_s: 0.50
+  hsv_v: 0.40
+  degrees: 15
+  translate: 0.1
+  scale: 0.50
+  fliplr: 0.50
+  mosaic: 1.0
+  mixup: 0.1
+
+# Validation
+validation:
+  # Confidence threshold for filtering detections
+  conf_threshold: 0.25
+  # IoU threshold for NMS
+  iou_threshold: 0.45
+
+# Expected performance targets
+targets:
+  map50: 0.80          # mAP@50 target for production
+  precision: 0.85
+  recall: 0.80
+  fps_target: 30       # Target FPS on edge device
+
+# Class distribution notes
+# After merging, expect:
+# - worker:           ~400 images (most common)
+# - hi_vis_vest:      ~250 images
+# - hard_hat:         ~200 images
+# - safety_glasses:   ~100 images
+# - work_boots:       ~80 images
+# - other classes:    ~170 images
+#
+# Balanced with oversampling during training to handle class imbalance

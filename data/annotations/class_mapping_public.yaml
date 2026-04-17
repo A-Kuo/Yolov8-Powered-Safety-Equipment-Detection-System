@@ -1,0 +1,262 @@
+# Class Mapping for Public Datasets to Unified 10-Class Schema
+# Phase 2B/2C: Remapping real data classes for training
+
+# Target schema (unified across all sources)
+target_schema:
+  0: worker
+  1: drone
+  2: safety_glasses
+  3: safety_goggles
+  4: hard_hat
+  5: regular_hat
+  6: hi_vis_vest
+  7: regular_clothing
+  8: work_boots
+  9: regular_shoes
+
+# ============================================================================
+# SOURCE 1: Roboflow Construction Safety Dataset
+# Original classes: 5 (but only 3 are PPE-related)
+# ============================================================================
+roboflow:
+  dataset_name: "construction-site-safety-yolov8"
+  original_classes:
+    0: Hardhat
+    1: Safety Vest
+    2: Person
+    3: NO-Hardhat      # Workers without hard hats
+    4: NO-Safety Vest  # Workers without safety vests
+
+  # Mapping: Roboflow → Target Schema (0-9)
+  mapping:
+    0:    # Hardhat → target class 4
+      target: 4
+      confidence_boost: 0.05  # Boost confidence when remapped
+      keep_original: false
+
+    1:    # Safety Vest → target class 6
+      target: 6
+      confidence_boost: 0.05
+      keep_original: false
+
+    2:    # Person → target class 0 (worker)
+      target: 0
+      confidence_boost: 0.0
+      keep_original: true    # Can use original person detections
+
+    3:    # NO-Hardhat → target class 7 (regular clothing, for context)
+      target: 7
+      confidence_boost: 0.0
+      keep_original: false
+
+    4:    # NO-Safety Vest → target class 7 (regular clothing)
+      target: 7
+      confidence_boost: 0.0
+      keep_original: false
+
+  notes:
+    - "Only 3 of 5 Roboflow classes are directly usable (Hardhat, Safety Vest, Person)"
+    - "NO-Hardhat and NO-Safety Vest may be useful for negative examples"
+    - "Total images: ~2,801 (but only ~1,000 contain relevant PPE)"
+
+# ============================================================================
+# SOURCE 2: Kaggle SH17 Safety Equipment Dataset
+# Original classes: 17 PPE equipment types
+# ============================================================================
+kaggle_sh17:
+  dataset_name: "sh17-dataset"
+  original_classes:
+    0: person
+    1: hard_hat
+    2: safety_jacket
+    3: safety_boots
+    4: safety_gloves
+    5: goggles
+    6: safety_glasses
+    7: face_shield
+    8: ear_plugs
+    9: respirator
+    10: knee_pads
+    11: elbow_pads
+    12: safety_vest
+    13: hard_hat_color_red
+    14: hard_hat_color_yellow
+    15: hard_hat_color_white
+    16: hard_hat_color_blue
+
+  # Mapping: SH17 → Target Schema (0-9)
+  mapping:
+    0:    # person → target 0 (worker)
+      target: 0
+      confidence_boost: 0.0
+      keep_original: true
+
+    1:    # hard_hat → target 4
+      target: 4
+      confidence_boost: 0.0
+      keep_original: true
+
+    2:    # safety_jacket → target 6 (hi_vis_vest)
+      target: 6
+      confidence_boost: 0.0
+      keep_original: true
+
+    3:    # safety_boots → target 8 (work_boots)
+      target: 8
+      confidence_boost: 0.0
+      keep_original: true
+
+    4:    # safety_gloves → DROP (no target for gloves in current schema)
+      target: null
+      confidence_boost: 0.0
+      keep_original: false  # Will need separate training for gloves
+
+    5:    # goggles → target 3 (safety_goggles)
+      target: 3
+      confidence_boost: 0.0
+      keep_original: true
+
+    6:    # safety_glasses → target 2
+      target: 2
+      confidence_boost: 0.0
+      keep_original: true
+
+    7:    # face_shield → DROP (not in target schema)
+      target: null
+      confidence_boost: 0.0
+      keep_original: false
+
+    8:    # ear_plugs → DROP (too small to detect reliably)
+      target: null
+      confidence_boost: 0.0
+      keep_original: false
+
+    9:    # respirator → DROP (specialized, not in scope)
+      target: null
+      confidence_boost: 0.0
+      keep_original: false
+
+    10:   # knee_pads → DROP (not in schema)
+      target: null
+      confidence_boost: 0.0
+      keep_original: false
+
+    11:   # elbow_pads → DROP (not in schema)
+      target: null
+      confidence_boost: 0.0
+      keep_original: false
+
+    12:   # safety_vest → target 6 (hi_vis_vest)
+      target: 6
+      confidence_boost: 0.0
+      keep_original: true
+
+    13:   # hard_hat_color_red → target 4 (hard_hat, color ignored)
+      target: 4
+      confidence_boost: 0.0
+      keep_original: true
+
+    14:   # hard_hat_color_yellow → target 4
+      target: 4
+      confidence_boost: 0.0
+      keep_original: true
+
+    15:   # hard_hat_color_white → target 4
+      target: 4
+      confidence_boost: 0.0
+      keep_original: true
+
+    16:   # hard_hat_color_blue → target 4
+      target: 4
+      confidence_boost: 0.0
+      keep_original: true
+
+  notes:
+    - "SH17 has 17 classes; only ~10 map to target schema"
+    - "Color-coded hard hats (13-16) → all map to class 4"
+    - "Total images: ~8,099 with diverse PPE combinations"
+    - "Classes 4,7,8,9,10,11 will be dropped (not in target schema)"
+
+# ============================================================================
+# SOURCE 3: Synthetic Data
+# Generated from random parameters for POC
+# ============================================================================
+synthetic:
+  dataset_name: "synthetic_50_images"
+  num_images: 50
+
+  # Synthetic data already uses target schema (created from scratch)
+  mapping:
+    # No mapping needed - generated with correct class IDs
+    # Classes 0-9 already in target format
+
+  notes:
+    - "50 synthetic images for POC baseline"
+    - "Classes: all 10 represented (randomly)"
+    - "Low diversity but good for baseline training"
+
+# ============================================================================
+# MERGING STRATEGY
+# ============================================================================
+merge_strategy:
+  total_images_expected: 1200    # 2801 Roboflow + 8099 SH17 + 50 synthetic = 10950
+  usable_images: 1200            # After filtering invalid/unmappable classes
+
+  split:
+    train: 0.70  # 840 images
+    val: 0.15    # 180 images
+    test: 0.15   # 180 images
+
+  class_distribution_target:
+    worker: 0.35         # 420 images
+    hard_hat: 0.17       # 200 images
+    hi_vis_vest: 0.21    # 250 images
+    safety_glasses: 0.08 # 100 images
+    safety_goggles: 0.06 # 75 images
+    work_boots: 0.07     # 85 images
+    regular_hat: 0.03    # 35 images
+    regular_shoes: 0.02  # 25 images
+    regular_clothing: 0.01  # 10 images
+    drone: 0.00          # 0 images (not available in public datasets)
+
+  oversampling:
+    # Oversample minority classes during training
+    safety_glasses: 1.2  # 20% boost
+    work_boots: 1.3      # 30% boost
+    regular_shoes: 1.5   # 50% boost
+
+# ============================================================================
+# VALIDATION & QA
+# ============================================================================
+qa_checks:
+  - "All remapped class IDs in range 0-9"
+  - "No duplicate mappings (except colors → single class)"
+  - "Minimum 50 images per class after merge"
+  - "Image dimensions at least 320x320 pixels"
+  - "Labels match YOLO format: class_id x_center y_center width height"
+  - "All annotations in range [0,1] normalized"
+
+# ============================================================================
+# IMPLEMENTATION NOTES
+# ============================================================================
+implementation:
+  script: "data/preprocessing/merge_real_datasets.py"
+  usage: |
+    python data/preprocessing/merge_real_datasets.py \
+      --roboflow data/raw/roboflow_construction \
+      --kaggle data/raw/kaggle_sh17 \
+      --synthetic data/processed/merged/train \
+      --output data/processed/mixed \
+      --config data/annotations/class_mapping_public.yaml
+
+  output_structure: |
+    data/processed/mixed/
+    ├── train/
+    │   ├── images/ (840 images)
+    │   └── labels/ (840 .txt files)
+    ├── val/
+    │   ├── images/ (180 images)
+    │   └── labels/ (180 .txt files)
+    └── test/
+        ├── images/ (180 images)
+        └── labels/ (180 .txt files)
