@@ -41,6 +41,14 @@ output:
   export_json: true
   export_csv: false
 
+# Roboflow Workflow backend (replaces local YOLOv8 when enabled)
+roboflow:
+  enabled: false                          # Set true or pass --use-roboflow
+  api_key: ${ROBOFLOW_API_KEY}            # Never hardcode — use env var
+  workspace: "austins-workspace-gjnf8"
+  workflow_id: "zGLpQAKajlvk32DknfR6"
+  api_url: "https://detect.roboflow.com"
+
 # Telemetry
 telemetry:
   log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR

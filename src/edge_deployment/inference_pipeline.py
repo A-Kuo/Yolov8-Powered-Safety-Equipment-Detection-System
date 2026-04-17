@@ -1,9 +1,16 @@
 """
 Multi-model inference pipeline for PPE detection.
 
-Phase 3: Orchestrate worker detection → optional drone filtering → PPE detection
+Phase 3: Orchestrate worker detection → optional drone filtering → PPE detection.
+
+Two backends are supported:
+  • Roboflow Workflow (default when api_key provided) — cloud-based, no local models needed.
+  • Local YOLOv8 models (fallback) — requires model files on disk.
+
+Select backend via the `use_roboflow` constructor flag or by setting ROBOFLOW_API_KEY.
 """
 
+import os
 import torch
 import numpy as np
 import logging
@@ -18,14 +25,20 @@ logger = logging.getLogger(__name__)
 
 
 class InferencePipeline:
-    """Coordinate multi-model inference: worker detection → PPE detection."""
+    """Coordinate multi-model inference: worker detection → PPE detection.
+
+    Set use_roboflow=True (or set ROBOFLOW_API_KEY env var) to call the
+    Roboflow PPE Compliance Pipeline instead of running local YOLOv8 models.
+    """
 
     def __init__(self,
-                 worker_model_path: str,
-                 ppe_model_path: str,
+                 worker_model_path: str = "",
+                 ppe_model_path: str = "",
                  drone_model_path: Optional[str] = None,
                  device: str = 'cuda' if torch.cuda.is_available() else 'cpu',
-                 conf_threshold: float = 0.25):
+                 conf_threshold: float = 0.25,
+                 use_roboflow: bool = False,
+                 roboflow_api_key: Optional[str] = None):
         """
         Initialize inference pipeline.
 
@@ -39,7 +52,25 @@ class InferencePipeline:
         self.device = device
         self.conf_threshold = conf_threshold
 
-        # Load models
+        # Roboflow backend takes priority when requested or API key is available
+        _api_key = roboflow_api_key or os.getenv("ROBOFLOW_API_KEY", "")
+        self._use_roboflow = use_roboflow or bool(_api_key)
+
+        if self._use_roboflow:
+            from src.edge_deployment.roboflow_inference import RoboflowInference
+            self._roboflow = RoboflowInference(
+                api_key=_api_key,
+                conf_threshold=conf_threshold,
+            )
+            self.worker_model = None
+            self.ppe_model = None
+            self.drone_model = None
+            self.worker_classes = {}
+            self.ppe_classes = {}
+            logger.info("✓ Using Roboflow workflow backend")
+            return
+
+        # Load local YOLO models
         logger.info(f"Loading models on {device}")
 
         self.worker_model = YOLO(worker_model_path)
@@ -158,6 +189,9 @@ class InferencePipeline:
         Returns:
             {worker_id: [DetectionResult]} for PPE items on each worker
         """
+        if self._use_roboflow:
+            return self._roboflow.process_frame(frame)
+
         frame_detections = {}
 
         # Step 1: Detect workers
@@ -199,6 +233,10 @@ class InferencePipeline:
             frame_size: Frame size (height, width) for warmup
             num_iterations: Number of warmup iterations
         """
+        if self._use_roboflow:
+            self._roboflow.warmup(num_iterations=1)
+            return
+
         logger.info("Warming up models...")
 
         for i in range(num_iterations):
@@ -216,6 +254,8 @@ class InferencePipeline:
 
     def get_info(self) -> Dict:
         """Get pipeline information."""
+        if self._use_roboflow:
+            return self._roboflow.get_info()
         return {
             'device': str(self.device),
             'worker_model_classes': len(self.worker_classes),
@@ -240,6 +280,15 @@ class InferencePipelineWithMetrics(InferencePipeline):
     def process_frame(self, frame: np.ndarray) -> Dict[int, List[DetectionResult]]:
         """Process frame with timing."""
         import time
+
+        if self._use_roboflow:
+            t0 = time.time()
+            result = self._roboflow.process_frame(frame)
+            elapsed = time.time() - t0
+            self.timings['worker_detection'].append(elapsed)
+            self.timings['ppe_detection'].append(0.0)
+            self.timings['total'].append(elapsed)
+            return result
 
         start_time = time.time()
 

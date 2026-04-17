@@ -111,7 +111,8 @@ def process_video(video_path: str,
                  compliance_config_path: str,
                  output_dir: str,
                  target_fps: int = 30,
-                 max_frames: int = None) -> dict:
+                 max_frames: int = None,
+                 use_roboflow: bool = False) -> dict:
     """
     Process entire video with inference and compliance checking.
 
@@ -123,6 +124,7 @@ def process_video(video_path: str,
         output_dir: Output directory
         target_fps: Resample video to this FPS
         max_frames: Limit number of frames (for testing)
+        use_roboflow: Use Roboflow cloud workflow instead of local models
 
     Returns:
         Results dictionary with all metrics
@@ -137,7 +139,8 @@ def process_video(video_path: str,
     pipeline = InferencePipelineWithMetrics(
         worker_model_path=worker_model_path,
         ppe_model_path=ppe_model_path,
-        device='cuda'
+        device='cuda',
+        use_roboflow=use_roboflow,
     )
     safety_engine = SafetyRulesEngine(compliance_config_path)
     profiler = PerformanceProfiler(device='cuda')
@@ -298,13 +301,15 @@ def main():
         description='Run local video inference with compliance checking'
     )
     parser.add_argument('--video', required=True, help='Path to input video')
-    parser.add_argument('--worker-model', required=True, help='Path to worker detection model')
-    parser.add_argument('--ppe-model', required=True, help='Path to PPE detection model')
+    parser.add_argument('--worker-model', default='', help='Path to worker detection model (not needed with --use-roboflow)')
+    parser.add_argument('--ppe-model', default='', help='Path to PPE detection model (not needed with --use-roboflow)')
     parser.add_argument('--compliance-config', default='config/compliance_rules.yaml',
                        help='Path to compliance rules YAML')
     parser.add_argument('--output', default='output/', help='Output directory')
     parser.add_argument('--fps', type=int, default=30, help='Target FPS for processing')
     parser.add_argument('--max-frames', type=int, help='Limit number of frames (for testing)')
+    parser.add_argument('--use-roboflow', action='store_true',
+                       help='Use Roboflow cloud workflow (requires ROBOFLOW_API_KEY env var)')
 
     args = parser.parse_args()
 
@@ -316,7 +321,8 @@ def main():
             compliance_config_path=args.compliance_config,
             output_dir=args.output,
             target_fps=args.fps,
-            max_frames=args.max_frames
+            max_frames=args.max_frames,
+            use_roboflow=args.use_roboflow,
         )
 
         # Print summary
