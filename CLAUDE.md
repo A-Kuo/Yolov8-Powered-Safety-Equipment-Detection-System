@@ -102,6 +102,12 @@ Utility scripts:
 
 ## Key Files Reference
 
+### Trained Models ✅
+- `models/yolo/ppe_detector.pt` — Trained YOLOv8m model (6.3 MB, PyTorch)
+- `models/onnx/ppe_detector.onnx` — ONNX export (13 MB, cross-platform)
+- `models/yolo/ppe_detector.torchscript` — TorchScript export (13 MB)
+- `TRAINING_RESULTS.md` — Complete training report with metrics
+
 ### Configuration
 - `config/models.yaml` — Model definitions, confidence thresholds
 - `config/dataset.yaml` — Class definitions, training hyperparameters
@@ -126,28 +132,36 @@ source venv/bin/activate  # or venv\Scripts\activate on Windows
 pip install -r requirements.txt
 ```
 
-### 2. Download Base Models (Optional)
-```bash
-bash scripts/download_models.sh
+### 2. Load Trained Models (Current)
+✅ Models are ready in:
+- PyTorch: `models/yolo/ppe_detector.pt`
+- ONNX: `models/onnx/ppe_detector.onnx`
+- TorchScript: `models/yolo/ppe_detector.torchscript`
+
+See `TRAINING_RESULTS.md` for complete metrics.
+
+### 3. Test on Local Warehouse Video
+```python
+from src.inference.yolo_detector import YOLODetector
+
+detector = YOLODetector('models/yolo/ppe_detector.pt', device='cuda')
+results = detector.predict('warehouse_video.mp4')
 ```
 
-### 3. Run Inference Tests
+### 4. Run Inference Tests
 ```bash
 pytest tests/test_inference.py -v
+pytest tests/test_yolov8_integration.py -v
 ```
 
-### 4. Train Custom Models
+### 5. Fine-tune on Real Data (Next Phase)
 ```bash
-python src/training/train_ppe_detector.py --config config/dataset.yaml
+python src/training/train_ppe_detector.py --config config/dataset.yaml --data your_real_data.yaml
 ```
 
-### 5. Export to ONNX
+### 6. Export & Optimize for Qualcomm
 ```bash
 python scripts/convert_to_onnx.py --model models/yolo/ppe_detector.pt
-```
-
-### 6. Optimize for Qualcomm
-```bash
 python scripts/optimize_for_qnn.py --onnx models/onnx/ppe_detector.onnx
 ```
 
