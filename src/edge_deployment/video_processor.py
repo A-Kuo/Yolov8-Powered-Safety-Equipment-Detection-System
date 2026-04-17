@@ -2,14 +2,17 @@
 Video processing for YOLOv8 safety detection inference.
 
 Phase 3: Load videos, extract frames, and handle streaming for inference.
-Supports MP4, AVI, MOV, and other OpenCV-compatible formats.
+Supports:
+  • Video files — MP4, AVI, MOV, and other OpenCV-compatible formats
+  • Live camera — webcam device index (0, 1, …) or RTSP/HTTP stream URL
 """
 
 import os
 import cv2
+import time
 import numpy as np
 from pathlib import Path
-from typing import Generator, Tuple, Optional, Dict
+from typing import Generator, Tuple, Optional, Dict, Union
 import logging
 
 
@@ -285,6 +288,118 @@ class VideoWriter:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Context manager exit."""
+        self.close()
+
+
+class CameraProcessor:
+    """Live camera or RTSP stream processor.
+
+    Provides the same iterator interface as VideoProcessor so downstream
+    code (inference scripts, compliance checks) works unchanged.
+
+    Usage:
+        # Webcam (device 0)
+        with CameraProcessor(0, target_fps=15) as cam:
+            for frame, idx, meta in cam:
+                ...
+
+        # RTSP stream
+        with CameraProcessor("rtsp://192.168.1.100:554/stream") as cam:
+            ...
+    """
+
+    def __init__(
+        self,
+        source: Union[int, str] = 0,
+        target_fps: int = 30,
+        target_size: Optional[Tuple[int, int]] = None,
+        max_frames: Optional[int] = None,
+    ):
+        """
+        Args:
+            source: Webcam device index (0, 1, …) or RTSP/HTTP URL string
+            target_fps: Cap frame rate to this value (skips frames if camera is faster)
+            target_size: Resize frames to (height, width); None keeps native resolution
+            max_frames: Stop after this many yielded frames; None runs until closed
+        """
+        self.source = source
+        self.target_fps = target_fps
+        self.target_size = target_size
+        self.max_frames = max_frames
+
+        self.cap = cv2.VideoCapture(source)
+        if not self.cap.isOpened():
+            raise ValueError(f"Cannot open camera source: {source!r}")
+
+        self.width  = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        self.height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        native_fps  = self.cap.get(cv2.CAP_PROP_FPS) or target_fps
+
+        # effective_fps exposed for VideoWriter compatibility
+        self.fps = native_fps
+        self.effective_fps = min(target_fps, native_fps)
+        self._min_interval = 1.0 / self.effective_fps
+
+        logger.info(
+            f"Opened camera: {source!r}  "
+            f"{self.width}×{self.height} @ {native_fps:.0f} fps  "
+            f"(target {target_fps} fps)"
+        )
+
+    # VideoProcessor compatibility shim
+    def info(self) -> Dict:
+        return {
+            'source': str(self.source),
+            'resolution': (self.width, self.height),
+            'fps': self.fps,
+            'effective_fps': self.effective_fps,
+            'target_fps': self.target_fps,
+            'target_size': self.target_size,
+            'max_frames': self.max_frames,
+        }
+
+    def __iter__(self) -> Generator[Tuple[np.ndarray, int, Dict], None, None]:
+        """Yield (frame, frame_idx, metadata) at the requested frame rate."""
+        frame_idx = 0
+        last_yield = 0.0
+
+        while True:
+            ret, frame = self.cap.read()
+            if not ret:
+                logger.warning("Camera read failed — stream ended or disconnected")
+                break
+
+            now = time.time()
+            if now - last_yield < self._min_interval:
+                continue  # rate-limit: drop frame
+            last_yield = now
+
+            if self.target_size:
+                frame = cv2.resize(frame, (self.target_size[1], self.target_size[0]))
+
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+            metadata = {
+                'frame_idx': frame_idx,
+                'timestamp_ms': now * 1000,
+                'source': str(self.source),
+                'shape': frame.shape,
+            }
+
+            yield frame, frame_idx, metadata
+
+            frame_idx += 1
+            if self.max_frames and frame_idx >= self.max_frames:
+                break
+
+    def close(self):
+        """Release camera resource."""
+        self.cap.release()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
         self.close()
 
 

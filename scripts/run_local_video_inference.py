@@ -112,7 +112,10 @@ def process_video(video_path: str,
                  output_dir: str,
                  target_fps: int = 30,
                  max_frames: int = None,
-                 use_roboflow: bool = False) -> dict:
+                 use_roboflow: bool = False,
+                 fp16: bool = False,
+                 input_size: int = 640,
+                 temporal_smoothing: int = 0) -> dict:
     """
     Process entire video with inference and compliance checking.
 
@@ -141,8 +144,13 @@ def process_video(video_path: str,
         ppe_model_path=ppe_model_path,
         device='cuda',
         use_roboflow=use_roboflow,
+        fp16=fp16,
+        input_size=input_size,
     )
-    safety_engine = SafetyRulesEngine(compliance_config_path)
+    safety_engine = SafetyRulesEngine(
+        compliance_config_path,
+        temporal_window=temporal_smoothing,
+    )
     profiler = PerformanceProfiler(device='cuda')
     metrics_collector = MetricsCollector()
 
@@ -310,6 +318,12 @@ def main():
     parser.add_argument('--max-frames', type=int, help='Limit number of frames (for testing)')
     parser.add_argument('--use-roboflow', action='store_true',
                        help='Use Roboflow cloud workflow (requires ROBOFLOW_API_KEY env var)')
+    parser.add_argument('--fp16', action='store_true',
+                       help='Enable FP16 half-precision inference (~1.5x faster, GPU only)')
+    parser.add_argument('--input-size', type=int, default=640,
+                       help='Model input resolution (default 640; try 480 for 1.5x speedup)')
+    parser.add_argument('--temporal-smoothing', type=int, default=0,
+                       help='Smooth compliance over last N frames per worker (0 = disabled)')
 
     args = parser.parse_args()
 
@@ -323,6 +337,9 @@ def main():
             target_fps=args.fps,
             max_frames=args.max_frames,
             use_roboflow=args.use_roboflow,
+            fp16=args.fp16,
+            input_size=args.input_size,
+            temporal_smoothing=args.temporal_smoothing,
         )
 
         # Print summary

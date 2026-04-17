@@ -6,7 +6,8 @@ Phase 3: Evaluate worker PPE compliance based on detection results and safety po
 
 import yaml
 import logging
-from typing import Dict, List, Tuple, Optional
+from collections import deque
+from typing import Dict, List, Tuple, Optional, Deque
 from dataclasses import dataclass, asdict
 from enum import Enum
 
@@ -55,14 +56,21 @@ class ComplianceResult:
 class SafetyRulesEngine:
     """Evaluate PPE compliance based on detection results."""
 
-    def __init__(self, config_path: str):
+    def __init__(self, config_path: str,
+                 temporal_window: int = 0,
+                 alert_cooldown_frames: int = 30):
         """
         Initialize rules engine from configuration.
 
         Args:
             config_path: Path to compliance_rules.yaml
+            temporal_window: If > 0, smooth confidence over last N frames per worker.
+                             Reduces false alerts from single missed detections.
+            alert_cooldown_frames: Suppress re-firing the same alert for this many frames.
         """
         self.config_path = config_path
+        self.temporal_window = temporal_window
+        self.alert_cooldown_frames = alert_cooldown_frames
 
         # Load configuration
         with open(config_path, 'r') as f:
@@ -74,12 +82,50 @@ class SafetyRulesEngine:
         self.alerts_config = self.config.get('alerts', {})
         self.special_cases = self.config.get('special_cases', {})
 
-        logger.info(f"Loaded safety rules from {config_path}")
+        # Per-worker detection history for temporal smoothing
+        # {worker_id: deque of {class_name: confidence} dicts}
+        self._detection_history: Dict[int, Deque[Dict[str, float]]] = {}
+
+        # Alert cooldown: {(worker_id, equipment_type): last_alert_frame}
+        self._alert_last_frame: Dict[Tuple[int, str], int] = {}
+
+        logger.info(
+            f"Loaded safety rules from {config_path} "
+            f"(temporal_window={temporal_window}, alert_cooldown={alert_cooldown_frames})"
+        )
+
+    def _update_history(self, worker_id: int, raw_detected: Dict[str, float]):
+        """Update per-worker detection rolling window."""
+        if worker_id not in self._detection_history:
+            self._detection_history[worker_id] = deque(maxlen=self.temporal_window)
+        self._detection_history[worker_id].append(raw_detected)
+
+    def _smooth_detections(self, worker_id: int, current: Dict[str, float]) -> Dict[str, float]:
+        """Return max-confidence over the temporal window (current frame + history)."""
+        history = self._detection_history.get(worker_id, deque())
+        smoothed: Dict[str, float] = dict(current)
+        for past in history:
+            for cls, conf in past.items():
+                if conf > smoothed.get(cls, 0.0):
+                    smoothed[cls] = conf
+        return smoothed
+
+    def _should_fire_alert(self, worker_id: int, equipment_type: str,
+                           frame_idx: Optional[int]) -> bool:
+        """Return True only if the alert cooldown has elapsed."""
+        if frame_idx is None or self.alert_cooldown_frames <= 0:
+            return True
+        key = (worker_id, equipment_type)
+        last = self._alert_last_frame.get(key, -self.alert_cooldown_frames - 1)
+        if (frame_idx - last) >= self.alert_cooldown_frames:
+            self._alert_last_frame[key] = frame_idx
+            return True
+        return False
 
     def evaluate_worker(self,
-                       worker_id: int,
-                       detections: List[DetectionResult],
-                       frame_idx: Optional[int] = None) -> ComplianceResult:
+                        worker_id: int,
+                        detections: List[DetectionResult],
+                        frame_idx: Optional[int] = None) -> ComplianceResult:
         """
         Evaluate if a worker is compliant based on detected equipment.
 
@@ -91,7 +137,7 @@ class SafetyRulesEngine:
         Returns:
             ComplianceResult with compliance status and details
         """
-        detected_equipment = {}
+        raw_detected: Dict[str, float] = {}
         alerts = []
 
         # Filter detections by confidence threshold
@@ -105,9 +151,15 @@ class SafetyRulesEngine:
                 self.confidence_thresholds.get('global_min', 0.25)
             )
 
-            # Only count detections above threshold
             if confidence >= min_confidence:
-                detected_equipment[class_name] = confidence
+                raw_detected[class_name] = confidence
+
+        # Temporal smoothing: merge current frame with rolling history
+        if self.temporal_window > 0:
+            self._update_history(worker_id, raw_detected)
+            detected_equipment = self._smooth_detections(worker_id, raw_detected)
+        else:
+            detected_equipment = raw_detected
 
         # Check for required PPE
         missing_equipment = []
@@ -203,18 +255,17 @@ class SafetyRulesEngine:
             if option not in exclude and option in detected_equipment:
                 return True
 
-        # Not detected, generate alert
-        severity = self._get_alert_severity(category_name)
-        message = f"Worker {worker_id}: Missing {category_name}"
-
-        alert = Alert(
-            severity=severity,
-            message=message,
-            equipment_type=category_name,
-            worker_id=worker_id,
-            frame_idx=frame_idx
-        )
-        alerts.append(alert)
+        # Not detected — fire alert only if cooldown has elapsed
+        if self._should_fire_alert(worker_id, category_name, frame_idx):
+            severity = self._get_alert_severity(category_name)
+            alert = Alert(
+                severity=severity,
+                message=f"Worker {worker_id}: Missing {category_name}",
+                equipment_type=category_name,
+                worker_id=worker_id,
+                frame_idx=frame_idx,
+            )
+            alerts.append(alert)
 
         return False
 
