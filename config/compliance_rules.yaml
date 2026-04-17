@@ -1,0 +1,259 @@
+# PPE Safety Compliance Rules Engine Configuration
+# Phase 3: Defines what constitutes a compliant worker
+
+# ============================================================================
+# SAFETY POLICY
+# ============================================================================
+safety_policy:
+  name: "Warehouse & Construction Site Safety"
+  version: "1.0"
+  description: "PPE requirements for warehouse and construction environments"
+  last_updated: "2026-04-17"
+
+# ============================================================================
+# REQUIRED PPE ITEMS
+# ============================================================================
+required_ppe:
+  # Eye Protection (ONE of these required)
+  eye_protection:
+    required: true
+    options:
+      - safety_glasses
+      - safety_goggles
+    description: "Prevents eye injuries from flying debris"
+    severity: "HIGH"
+
+  # Head Protection (ONE of these required, NOT regular hat)
+  head_protection:
+    required: true
+    options:
+      - hard_hat
+    exclude:
+      - regular_hat
+    description: "Protects from falling objects"
+    severity: "CRITICAL"
+
+  # Torso Protection (One of these required)
+  torso_protection:
+    required: true
+    options:
+      - hi_vis_vest
+    description: "Visibility and some impact protection"
+    severity: "HIGH"
+
+  # Foot Protection (ONE of these required, NOT regular shoes)
+  foot_protection:
+    required: true
+    options:
+      - work_boots
+    exclude:
+      - regular_shoes
+    description: "Protects from puncture wounds, compression"
+    severity: "MEDIUM"
+
+# ============================================================================
+# CONFIDENCE THRESHOLDS
+# ============================================================================
+confidence_thresholds:
+  # Global minimum confidence for any detection to be considered valid
+  global_min: 0.25
+
+  # Per-equipment-type thresholds (can be stricter than global)
+  equipment_specific:
+    worker: 0.30           # Worker/person detection must be confident
+    drone: 0.40            # Drone detection (for filtering)
+    safety_glasses: 0.35   # Small objects need higher confidence
+    safety_goggles: 0.35
+    hard_hat: 0.30         # Head protection is critical
+    regular_hat: 0.30
+    hi_vis_vest: 0.30      # Visibility is important
+    regular_clothing: 0.20 # Low threshold (catch negatives)
+    work_boots: 0.35       # Small objects, high confidence needed
+    regular_shoes: 0.35
+
+# ============================================================================
+# COMPLIANCE SCORING
+# ============================================================================
+compliance_scoring:
+  # A worker is compliant if ALL required_ppe items are detected above confidence threshold
+  algorithm: "ALL_REQUIRED"  # Options: ALL_REQUIRED, WEIGHTED_SCORE, FUZZY
+
+  # For WEIGHTED_SCORE algorithm (future):
+  # weights:
+  #   eye_protection: 0.25
+  #   head_protection: 0.35  # Most critical
+  #   torso_protection: 0.20
+  #   foot_protection: 0.20
+
+  # Compliance verdict: worker passes if all required items detected
+  pass_criteria:
+    all_required_items_detected: true
+    all_above_confidence_threshold: true
+
+  # Alert generation
+  alerts:
+    missing_eye_protection: "WARN"
+    missing_head_protection: "CRITICAL"
+    missing_torso_protection: "WARN"
+    missing_foot_protection: "INFO"
+    worker_without_ppe: "CRITICAL"
+
+# ============================================================================
+# DETECTION RULES
+# ============================================================================
+detection_rules:
+  # Workers must be detected in frame
+  worker_detection:
+    required: true
+    confidence_threshold: 0.30
+    description: "Worker must be clearly visible in frame"
+
+  # Drone filtering (optional)
+  drone_filtering:
+    enabled: false  # Set to true to exclude drones from compliance checking
+    confidence_threshold: 0.40
+    action: "skip"  # Options: skip (don't flag), alert (flag separately)
+
+  # Multiple detections of same equipment on one worker
+  multiple_detections:
+    handling: "best_confidence"  # Options: best_confidence, average, count_any
+    description: "If multiple hard hats detected on one worker, use highest confidence"
+
+# ============================================================================
+# AGGREGATION RULES
+# ============================================================================
+aggregation:
+  # Per-frame statistics
+  frame_level:
+    total_workers_detected: true
+    workers_compliant: true
+    workers_non_compliant: true
+    compliance_rate: true  # % compliant
+
+  # Video-level statistics
+  video_level:
+    total_frames_analyzed: true
+    average_compliance_rate: true
+    peak_non_compliance_frames: true
+    critical_alerts_count: true
+
+  # Worker tracking (future: ByteTrack, SORT)
+  worker_tracking:
+    enabled: false
+    temporal_smoothing: false  # Average compliance over N frames
+
+# ============================================================================
+# ALERT CONFIGURATION
+# ============================================================================
+alerts:
+  # Alert levels
+  severity_levels:
+    INFO: 0       # Informational (detected item info)
+    WARN: 1       # Warning (missing non-critical PPE)
+    CRITICAL: 2   # Critical (missing essential PPE, worker without helmet)
+
+  # Alert generation rules
+  generation:
+    missing_critical_ppe: "CRITICAL"   # Missing hard hat
+    missing_high_ppe: "WARN"           # Missing glasses, vest
+    missing_medium_ppe: "INFO"         # Missing boots
+    worker_detected_no_ppe: "CRITICAL" # Worker but no PPE detected
+
+  # Alert deduplication (don't spam same alert)
+  deduplication:
+    enabled: true
+    window_frames: 30  # Group alerts within 30 frames (1 second @ 30 FPS)
+    action: "sample"   # Options: sample (keep 1 per window), all (keep all), aggregate
+
+# ============================================================================
+# SPECIAL CASES & EXCEPTIONS
+# ============================================================================
+special_cases:
+  # Partial visibility
+  partial_visibility:
+    handling: "compliant_if_visible_items_compliant"
+    description: "If worker partially visible, check visible items for compliance"
+
+  # Occlusion (person behind object)
+  occlusion:
+    handling: "uncertain"  # Options: uncertain, optimistic, pessimistic
+    description: "If equipment is occluded, treat as uncertain (not fail)"
+
+  # Very distant workers (small in frame)
+  distance_handling:
+    handling: "uncertain"
+    min_worker_area_pixels: 50  # Don't flag if worker too small to verify PPE
+
+# ============================================================================
+# METRICS & LOGGING
+# ============================================================================
+metrics:
+  # Per-frame metrics to collect
+  track_per_frame: true
+  per_class_confidence_distributions: true
+  false_positive_analysis: false  # Requires ground truth
+
+  # Logging
+  log_level: "INFO"  # Options: DEBUG, INFO, WARN, ERROR
+  log_detections: false  # Verbose logging of each detection
+  log_alerts: true       # Log all generated alerts
+
+  # Output formats
+  output_formats:
+    - json      # Per-frame JSON results
+    - csv       # Summary statistics
+    - video     # Annotated video with overlays
+
+# ============================================================================
+# EXAMPLE COMPLIANCE CHECKS
+# ============================================================================
+examples:
+  # Worker with all required PPE → COMPLIANT
+  example_compliant:
+    worker: "detected"
+    safety_glasses: "confidence: 0.85"
+    hard_hat: "confidence: 0.92"
+    hi_vis_vest: "confidence: 0.88"
+    work_boots: "confidence: 0.75"
+    verdict: "COMPLIANT ✓"
+
+  # Worker missing hard hat → NON-COMPLIANT (CRITICAL alert)
+  example_non_compliant_critical:
+    worker: "detected"
+    safety_glasses: "confidence: 0.80"
+    hard_hat: "NOT detected"
+    hi_vis_vest: "confidence: 0.85"
+    work_boots: "confidence: 0.70"
+    verdict: "NON-COMPLIANT ✗ (Missing hard hat - CRITICAL)"
+    alert: "CRITICAL: Worker without head protection"
+
+  # Worker with partial PPE → NON-COMPLIANT (WARN alert)
+  example_non_compliant_warn:
+    worker: "detected"
+    safety_glasses: "NOT detected"
+    hard_hat: "confidence: 0.90"
+    hi_vis_vest: "confidence: 0.88"
+    work_boots: "confidence: 0.72"
+    verdict: "NON-COMPLIANT ✗ (Missing eye protection)"
+    alert: "WARN: Missing eye protection"
+
+  # Person without PPE → NON-COMPLIANT (CRITICAL alert)
+  example_non_compliant_severe:
+    worker: "detected"
+    safety_glasses: "NOT detected"
+    hard_hat: "NOT detected"
+    hi_vis_vest: "NOT detected"
+    work_boots: "NOT detected"
+    verdict: "NON-COMPLIANT ✗ (No PPE detected)"
+    alert: "CRITICAL: Worker without PPE - Safety violation"
+
+# ============================================================================
+# NOTES FOR IMPLEMENTATION
+# ============================================================================
+notes: |
+  1. Confidence thresholds can be tuned based on Phase 3 validation
+  2. Alert deduplication prevents alert spam in real-time scenarios
+  3. Special cases handle edge cases (partial visibility, occlusion)
+  4. Metrics collection enables post-training analysis
+  5. All parameters are modifiable without code changes
+  6. Extension points exist for future features (worker tracking, temporal smoothing)

@@ -1,0 +1,306 @@
+# Performance & Optimization Thresholds Configuration
+# Phase 3: Define acceptable performance targets and optimization strategies
+
+# ============================================================================
+# PERFORMANCE TARGETS
+# ============================================================================
+performance_targets:
+  # Real-time inference targets
+  fps:
+    minimum: 30        # Absolute minimum for real-time processing
+    target: 30         # Acceptable performance
+    optimal: 60        # Ideal for smooth video playback
+
+  # Latency targets (milliseconds per frame)
+  latency:
+    frame_io: 5        # Video frame reading
+    worker_detector: 30 # YOLOv8 worker detection
+    drone_classifier: 10 # Optional drone filtering
+    ppe_detector: 25   # YOLOv8 PPE detection
+    post_processing: 5  # NMS, filtering, compliance checking
+    total_per_frame: 75 # Total end-to-end latency target
+
+  # Combined target
+  # @30 FPS: 33ms per frame budget
+  # Current target: ~75ms means ~13 FPS
+  # TODO: Optimize to reach 30+ FPS (optimization roadmap in Phase 3.2)
+
+# ============================================================================
+# MEMORY BUDGETS
+# ============================================================================
+memory_budgets:
+  # GPU memory (NVIDIA, Intel Arc)
+  gpu:
+    worker_detector_model: 500    # MB
+    ppe_detector_model: 800       # MB
+    batch_buffers: 200            # MB (input/output tensors)
+    total: 1500                   # MB (1.5GB)
+
+  # System RAM
+  cpu:
+    video_frame_buffer: 50        # MB (2-3 frames @ 1080p)
+    metadata_storage: 10          # MB
+    total: 100                    # MB
+
+  # Combined budget for edge device (Snapdragon/Rubik Pi)
+  edge:
+    total: 2000                   # 2GB absolute maximum
+
+# ============================================================================
+# HARDWARE TARGETS & BENCHMARKS
+# ============================================================================
+hardware_targets:
+  # Local testing environment (Intel Arc 140V)
+  local:
+    device: "Intel Arc GPU 140V"
+    expected_fps: 15-20           # Single stream
+    expected_latency_ms: 50-65    # Per-frame
+    memory_usage: 1500-1800       # MB
+
+  # Edge deployment (Snapdragon/Rubik Pi)
+  edge:
+    devices:
+      - "Qualcomm Snapdragon 8 Gen 2"
+      - "Rubik Pi (ARM)"
+    expected_fps_goal: 30+        # After optimization
+    expected_latency_ms: 33       # Target for 30 FPS
+    memory_usage: 1200-1800       # MB
+    power_consumption: 2-5        # Watts (estimated)
+
+  # High-performance option (NVIDIA A100)
+  highperf:
+    device: "NVIDIA A100"
+    expected_fps: 100+
+    expected_latency_ms: 10
+    memory_usage: 2000            # MB
+
+# ============================================================================
+# OPTIMIZATION STRATEGIES (Priority Order)
+# ============================================================================
+optimization_strategies:
+  # Strategy 1: FP16 (Half Precision)
+  fp16_mixed_precision:
+    enabled: true
+    expected_speedup: 1.5x        # 50% faster
+    expected_accuracy_loss: 0.01  # <1% mAP drop
+    memory_reduction: 2x          # 50% less memory
+    implementation: "torch.cuda.amp or onnxruntime fp16"
+    priority: "HIGH"
+    status: "RECOMMENDED"
+
+  # Strategy 2: Input Resolution Reduction
+  resolution_reduction:
+    enabled: true
+    options:
+      - 640x640  # Current (baseline)
+      - 480x480  # 56% smaller
+      - 320x320  # 25% of baseline
+    expected_speedup:
+      "480x480": 1.5x
+      "320x320": 4.0x
+    expected_accuracy_loss:
+      "480x480": 0.02   # 2% mAP drop
+      "320x320": 0.05   # 5% mAP drop
+    priority: "MEDIUM"
+    status: "VALIDATE ON PHASE 3 VIDEO"
+
+  # Strategy 3: Batch Processing
+  batch_processing:
+    enabled: true
+    batch_sizes:
+      - 1   # Single frame (baseline)
+      - 2   # Dual processing
+      - 4   # Quad processing
+    expected_throughput_improvement:
+      "batch_2": 1.3x
+      "batch_4": 1.8x
+    memory_overhead:
+      "batch_2": 1.5x
+      "batch_4": 2.5x
+    priority: "MEDIUM"
+    status: "GPU-BOUND ONLY"
+
+  # Strategy 4: ONNX Runtime Optimization
+  onnx_optimization:
+    enabled: true
+    expected_speedup: 1.1x        # 10% faster than PyTorch
+    accuracy_loss: 0.0            # Same accuracy
+    memory_reduction: 1.0x        # Same memory
+    priority: "HIGH"
+    status: "CROSS-PLATFORM VALIDATION"
+
+  # Strategy 5: Quantization (INT8)
+  quantization_int8:
+    enabled: false                # Advanced, Phase 4
+    expected_speedup: 4.0x
+    expected_accuracy_loss: 0.02  # 2% mAP drop
+    memory_reduction: 4x
+    implementation: "ONNX quantization or TensorRT"
+    priority: "LOW"
+    status: "PHASE 4 OPTIMIZATION"
+
+  # Strategy 6: Model Pruning
+  pruning:
+    enabled: false                # Advanced, Phase 4
+    expected_speedup: 2.0x
+    expected_accuracy_loss: 0.01  # 1% mAP drop
+    priority: "LOW"
+    status: "PHASE 4 OPTIMIZATION"
+
+  # Strategy 7: Layer Fusion
+  layer_fusion:
+    enabled: true
+    expected_speedup: 1.2x
+    priority: "HIGH"
+    status: "ONNX AUTOMATIC"
+
+# ============================================================================
+# BENCHMARKING STRATEGY
+# ============================================================================
+benchmarking:
+  # Phase 3.1: Baseline measurements
+  baseline:
+    frames_to_profile: 100
+    metrics:
+      - fps
+      - per_frame_latency
+      - memory_peak
+      - memory_average
+      - gpu_utilization
+
+  # Phase 3.2: Optimization validation
+  optimization:
+    frames_per_strategy: 100
+    validation_metrics:
+      - fps_improvement
+      - accuracy_change
+      - memory_impact
+      - gpu_utilization
+
+  # Phase 3.3: Edge deployment validation
+  edge_validation:
+    frames_to_profile: 300        # 10 seconds @ 30 FPS
+    conditions:
+      - "Continuous inference"
+      - "Concurrent app load"
+      - "Thermal stress test"
+
+# ============================================================================
+# PERFORMANCE REGRESSION DETECTION
+# ============================================================================
+regression_detection:
+  enabled: true
+
+  # Track performance over time
+  baseline_fps: 12                # Current: ~12 FPS single frame
+  alert_threshold_percent: 10     # Alert if FPS drops >10%
+
+  # Per-component regressions
+  worker_detector_regression: 5   # ms increase threshold
+  ppe_detector_regression: 5      # ms increase threshold
+
+# ============================================================================
+# OPTIMIZATION PRIORITY MATRIX
+# ============================================================================
+priority_matrix: |
+  Phase 3.1 (Week 1): Baseline Profiling
+    - Measure current FPS/latency on local video
+    - Identify bottlenecks (worker vs PPE detector)
+    - Profile memory usage
+    - Set realistic targets
+
+  Phase 3.2 (Week 2): Quick Wins
+    - Enable FP16 precision (~1.5x speedup, safe)
+    - Validate ONNX runtime (~1.1x speedup)
+    - Explore 480x480 resolution (~1.5x speedup, ~2% accuracy loss)
+    - Target: 20-25 FPS
+
+  Phase 3.3 (Week 3): Advanced Optimizations
+    - Batch processing (if not CPU-limited)
+    - Layer fusion validation
+    - Quantization exploration
+    - Target: 30+ FPS
+
+  Phase 4: Edge Deployment
+    - Quantization finalization (INT8)
+    - QNN compilation
+    - Thermal/power optimization
+    - Target: 30+ FPS on Snapdragon
+
+# ============================================================================
+# MONITORING & ALERTING
+# ============================================================================
+monitoring:
+  # Real-time performance tracking
+  metrics_collection_interval_frames: 30  # Every 1 second @ 30 FPS
+
+  # Alerts
+  low_fps_threshold: 20           # Alert if FPS < 20
+  high_memory_threshold: 1800     # Alert if memory > 1.8GB
+  high_latency_threshold: 100     # Alert if latency > 100ms
+
+  # Logging
+  log_performance_summary: true   # Log every N frames
+  log_interval: 300               # Every 10 seconds @ 30 FPS
+
+# ============================================================================
+# TEST SCENARIOS
+# ============================================================================
+test_scenarios:
+  # Scenario 1: Single continuous video stream
+  scenario_single_stream:
+    video_duration: 300           # 5 minutes
+    fps: 30
+    resolution: 1080p
+    expected_fps: 30
+    expected_memory: 1500         # MB
+
+  # Scenario 2: HD video stream
+  scenario_hd_stream:
+    video_duration: 300
+    fps: 30
+    resolution: 720p
+    expected_fps: 35+
+    expected_memory: 1200
+
+  # Scenario 3: Low-resolution (edge device simulation)
+  scenario_low_res:
+    video_duration: 300
+    fps: 30
+    resolution: 480p
+    expected_fps: 40+
+    expected_memory: 800
+
+# ============================================================================
+# SUCCESS CRITERIA
+# ============================================================================
+success_criteria:
+  baseline_phase3_1:
+    fps_min: 12
+    memory_max_mb: 1800
+    latency_max_ms: 85
+
+  optimization_phase3_2:
+    fps_target: 20
+    fps_goal: 25
+    memory_max_mb: 1200
+    latency_max_ms: 50
+
+  edge_phase3_3:
+    fps_target: 30
+    memory_max_mb: 1800
+    latency_max_ms: 33
+    power_max_watts: 5
+
+# ============================================================================
+# NOTES FOR IMPLEMENTATION
+# ============================================================================
+notes: |
+  1. All speedup estimates are empirical and should be validated on actual hardware
+  2. Accuracy loss estimates based on literature; validate with Phase 3 video
+  3. FP16 is priority #1 optimization (safe, effective, widely supported)
+  4. Resolution reduction is effective but needs validation on real-world video
+  5. Batch processing only helps if GPU is bottleneck; may not help if CPU-bound
+  6. Quantization is Phase 4 focus (more complex, edge device specific)
+  7. Edge device (Snapdragon) performance will be better due to QNN optimization
+  8. All thresholds are tunable based on Phase 3 measurements
