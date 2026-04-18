@@ -45,9 +45,11 @@ htmlcov/
 *.torchscript
 *.pb
 *.tflite
-models/yolo/
-models/onnx/
-models/qnn/
+*.bin
+*.xml
+models/
+yolov8*/
+runs/
 
 # Datasets (do not track raw data)
 data/raw/

@@ -27,10 +27,10 @@ jobs:
         pip install black flake8 isort
 
     - name: Run black (code formatter check)
-      run: black --check src/ tests/ scripts/ || true
+      run: black --check src/ tests/ scripts/
 
     - name: Run isort (import sorter check)
-      run: isort --check-only src/ tests/ scripts/ || true
+      run: isort --check-only src/ tests/ scripts/
 
     - name: Run flake8 (linter)
-      run: flake8 src/ tests/ scripts/ --max-line-length=100 --ignore=E203,W503 || true
+      run: flake8 src/ tests/ scripts/ --max-line-length=100 --ignore=E203,W503
