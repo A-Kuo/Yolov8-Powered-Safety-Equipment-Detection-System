@@ -169,8 +169,8 @@ class SafetyRulesEngine:
         eye_ok = self._check_category(
             detected_equipment,
             'safety_glasses', 'safety_goggles',
-            'eye_protection',
-            alerts, worker_id, frame_idx
+            category_name='eye_protection',
+            alerts=alerts, worker_id=worker_id, frame_idx=frame_idx,
         )
         if not eye_ok:
             missing_equipment.extend(['safety_glasses', 'safety_goggles'])
@@ -180,9 +180,9 @@ class SafetyRulesEngine:
         head_ok = self._check_category(
             detected_equipment,
             'hard_hat',
-            'head_protection',
-            alerts, worker_id, frame_idx,
-            exclude=['regular_hat']
+            category_name='head_protection',
+            alerts=alerts, worker_id=worker_id, frame_idx=frame_idx,
+            exclude=['regular_hat'],
         )
         if not head_ok:
             missing_equipment.append('hard_hat')
@@ -192,8 +192,8 @@ class SafetyRulesEngine:
         torso_ok = self._check_category(
             detected_equipment,
             'hi_vis_vest',
-            'torso_protection',
-            alerts, worker_id, frame_idx
+            category_name='torso_protection',
+            alerts=alerts, worker_id=worker_id, frame_idx=frame_idx,
         )
         if not torso_ok:
             missing_equipment.append('hi_vis_vest')
@@ -203,9 +203,9 @@ class SafetyRulesEngine:
         foot_ok = self._check_category(
             detected_equipment,
             'work_boots',
-            'foot_protection',
-            alerts, worker_id, frame_idx,
-            exclude=['regular_shoes']
+            category_name='foot_protection',
+            alerts=alerts, worker_id=worker_id, frame_idx=frame_idx,
+            exclude=['regular_shoes'],
         )
         if not foot_ok:
             missing_equipment.append('work_boots')
