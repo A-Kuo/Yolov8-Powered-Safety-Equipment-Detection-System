@@ -61,6 +61,9 @@ data/processed/
 *.log
 logs/
 
+# Generated inference output (videos, reports, snapshots)
+output/
+
 # System
 .tmp/
 *.bak
