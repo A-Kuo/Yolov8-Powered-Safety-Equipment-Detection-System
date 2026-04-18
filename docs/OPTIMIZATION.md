@@ -396,7 +396,14 @@ InferencePipelineWithMetrics(
 
 ---
 
-## References
+## Related Documentation
+
+- **[CAMERA_TESTING.md](CAMERA_TESTING.md)** — Live camera testing guide (practical optimization usage)
+- **[README.md](../README.md)** — Quick start and performance overview
+- **[TESTING.md](../TESTING.md)** — Test plan and validation procedures
+- **[CLAUDE.md](../CLAUDE.md)** — API reference and implementation details
+
+## External References
 
 - **PyTorch FP16:** https://pytorch.org/docs/stable/amp.html
 - **YOLOv8 Speed:** https://docs.ultralytics.com/tasks/detect/#efficiency

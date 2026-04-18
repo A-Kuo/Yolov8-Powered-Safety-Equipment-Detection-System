@@ -100,32 +100,47 @@ python scripts/run_local_video_inference.py \
 
 ---
 
-#### 2B: Live Webcam Testing (Future Enhancement)
+#### 2B: Live Webcam Testing ✅ **IMPLEMENTED**
 
-**Status:** Not yet implemented  
-**Required Changes:**
-1. Extend `VideoProcessor` to accept camera index or RTSP stream
-2. Add real-time frame capture from `cv2.VideoCapture(0)` or USB camera
-3. Integrate with inference pipeline for live overlay
+**Status:** ✅ COMPLETE and READY TO USE  
+**Primary Reference:** See **[docs/CAMERA_TESTING.md](docs/CAMERA_TESTING.md)** for complete guide
 
-**Placeholder Code:**
-```python
-# Future enhancement — not yet in codebase
-from src.edge_deployment.camera_handler import CameraHandler
-
-with CameraHandler(device=0) as cam:  # 0 = default webcam
-    while True:
-        frame = cam.capture()
-        detections = pipeline.process_frame(frame)
-        # ... compliance checking, visualization ...
-```
-
-**Current Workaround:** Create synthetic video from webcam:
+**Quick Start:**
 ```bash
-# Capture 10 seconds of webcam to MP4 (requires ffmpeg)
-ffmpeg -f dshow -i video="HD Camera" -t 10 webcam_test.mp4
-# Then run the video testing script above
+# Minimal setup (Roboflow backend, cloud models)
+python scripts/run_live_inference.py --camera 0
+
+# With optimizations enabled (local models)
+python scripts/run_live_inference.py \
+    --camera 0 \
+    --worker-model models/worker.pt \
+    --ppe-model models/ppe.pt \
+    --fp16 \
+    --input-size 480
 ```
+
+**Supported Camera Sources:**
+- Webcam device indices (0, 1, 2, …)
+- RTSP streams (`rtsp://192.168.1.100:554/stream`)
+- HTTP/MJPEG streams
+- Authentication support for network cameras
+
+**Interactive Controls:**
+- **Q / ESC** — Quit
+- **S** — Save snapshot of current frame
+- **R** — Reset statistics counter
+
+**Output Files:**
+- `annotated_TIMESTAMP.mp4` — Full session video with compliance overlay
+- `session_report_TIMESTAMP.json` — Compliance statistics
+- `snapshot_TIMESTAMP_*.jpg` — Individual frames (when S pressed)
+
+**Advanced Features (See CAMERA_TESTING.md):**
+- FP16 optimization (~1.5× speedup)
+- Temporal compliance smoothing (eliminates false alerts)
+- Frame rate control for consistency
+- Headless mode for server deployment
+- Multi-camera setup support
 
 ---
 
@@ -307,11 +322,13 @@ GPU Util:       85-95% (Intel Arc 140V)
 
 ## Support & Documentation
 
-- **Main Docs:** See `README.md` for setup and quick start
-- **Phase 3 Details:** `docs/PHASE3_IMPLEMENTATION.md`
-- **Roboflow Integration:** `docs/ROBOFLOW_WORKFLOW_INTEGRATION.md`
-- **Architecture:** `CLAUDE.md`
-- **Issues:** Check `docs/TROUBLESHOOTING.md` if tests fail
+- **Main Docs:** See [README.md](README.md) for setup and quick start
+- **Live Camera Testing:** [docs/CAMERA_TESTING.md](docs/CAMERA_TESTING.md)
+- **Performance Optimization:** [docs/OPTIMIZATION.md](docs/OPTIMIZATION.md)
+- **Phase 3 Details:** [docs/PHASE3_IMPLEMENTATION.md](docs/PHASE3_IMPLEMENTATION.md)
+- **Roboflow Integration:** [docs/ROBOFLOW_WORKFLOW_INTEGRATION.md](docs/ROBOFLOW_WORKFLOW_INTEGRATION.md)
+- **Architecture:** [CLAUDE.md](CLAUDE.md)
+- **Issues:** Check [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) if tests fail
 
 ---
 
