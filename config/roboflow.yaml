@@ -1,0 +1,20 @@
+# =============================================================================
+# Roboflow Hosted Inference Configuration
+# =============================================================================
+#
+# model_id is built from three path segments in the Deploy → Hosted API URL:
+#   https://detect.roboflow.com/<workspace>/<project>/<version>?api_key=...
+#
+# How to find your version number:
+#   1. Go to https://app.roboflow.com/austins-workspace-gjnf8/yolov8-worker-safety-item-detect/deploy
+#   2. Scroll to the "Hosted API" section and look at the sample request URL.
+#   3. The integer at the end of the path (before the "?") is your version, e.g.:
+#        https://detect.roboflow.com/austins-workspace-gjnf8/yolov8-worker-safety-item-detect/1?...
+#      → version = 1
+#   4. If inference returns 404, return to Deploy and confirm the version matches exactly.
+#
+# Project : yolov8-worker-safety-item-detect
+# Workspace: austins-workspace-gjnf8
+# =============================================================================
+
+model_id: "austins-workspace-gjnf8/yolov8-worker-safety-item-detect/1"
